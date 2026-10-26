@@ -1,0 +1,109 @@
+# Local development / demo stack.
+#   cp .env.example .env   # then fill in the three required secrets
+#   docker compose up --build
+#   docker compose --profile demo up --build   # also starts the controllable mock upstream
+#
+# Frontend: http://localhost:8080   API docs: http://localhost:8000/docs
+
+x-backend-env: &backend-env
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+  DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-driftradar}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-driftradar}
+  MONGO_URL: mongodb://${MONGO_ROOT_USER:-driftradar}:${MONGO_ROOT_PASSWORD:?set MONGO_ROOT_PASSWORD in .env}@mongo:27017/?authSource=admin
+  MONGO_DB: ${MONGO_DB:-driftradar}
+  JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
+  ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-60}
+  CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8080}
+  MONITOR_ALLOWED_HOSTS: ${MONITOR_ALLOWED_HOSTS:-}
+  MONITOR_MAX_CONCURRENCY: ${MONITOR_MAX_CONCURRENCY:-5}
+  MONITOR_MIN_INTERVAL_SECONDS: ${MONITOR_MIN_INTERVAL_SECONDS:-30}
+  SNAPSHOT_RETENTION_DAYS: ${SNAPSHOT_RETENTION_DAYS:-14}
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-driftradar}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-driftradar}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  mongo:
+    image: mongo:7.0
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:-driftradar}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?set MONGO_ROOT_PASSWORD in .env}
+    volumes:
+      - mongodata:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # One-shot: applies Alembic migrations, then exits. api/worker wait for it to succeed.
+  migrate:
+    build: ./backend
+    command: ["alembic", "upgrade", "head"]
+    environment: *backend-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: on-failure:5
+
+  api:
+    build: ./backend
+    restart: unless-stopped
+    environment: *backend-env
+    ports:
+      - "8000:8000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      mongo:
+        condition: service_healthy
+
+  # Separate scheduler process. A PostgreSQL advisory lock guarantees only one active
+  # scheduler even if this service is scaled or restarted, so jobs are never duplicated.
+  worker:
+    build: ./backend
+    command: ["python", "-m", "app.workers.main"]
+    restart: unless-stopped
+    environment: *backend-env
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      mongo:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE_URL: /api/v1
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    depends_on:
+      api:
+        condition: service_healthy
+
+  # DEMO ONLY (profile "demo"): controllable fake upstream for docs/demo-walkthrough.md.
+  # Monitoring it requires MONITOR_ALLOWED_HOSTS=mock-api because it lives on a private network.
+  mock-api:
+    profiles: ["demo"]
+    build: ./backend
+    command: ["uvicorn", "demo.mock_api:app", "--host", "0.0.0.0", "--port", "8000"]
+    ports:
+      - "8001:8000"
+
+volumes:
+  pgdata:
+  mongodata:

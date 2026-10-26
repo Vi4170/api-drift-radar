@@ -1,0 +1,29 @@
+[project]
+name = "api-drift-radar-backend"
+version = "1.0.0"
+requires-python = ">=3.12"
+
+[tool.ruff]
+line-length = 110
+target-version = "py312"
+extend-exclude = ["alembic/versions"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "S", "SIM", "RUF", "A", "BLE"]
+ignore = [
+  "S101",   # assert is fine in tests
+  "RUF012", # mutable class defaults in pydantic/sqlalchemy models are intended
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S105", "S106", "S107", "S311"]
+"app/workers/scheduler.py" = ["S311"]  # random jitter, not cryptography
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+filterwarnings = [
+  "error::sqlalchemy.exc.SAWarning",
+  "ignore:Using `httpx` with `starlette.testclient` is deprecated",
+  "ignore:datetime.datetime.utcnow:DeprecationWarning:mongomock",
+]

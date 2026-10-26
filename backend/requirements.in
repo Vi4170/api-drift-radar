@@ -1,0 +1,15 @@
+# Direct runtime dependencies. Compile the pinned lockfile with:
+#   uv pip compile requirements.in -o requirements.txt
+fastapi>=0.115
+uvicorn[standard]>=0.30
+pydantic>=2.8
+pydantic-settings>=2.4
+email-validator>=2.2
+sqlalchemy>=2.0.30
+alembic>=1.13
+psycopg[binary]>=3.2
+pymongo>=4.8
+httpx>=0.27
+argon2-cffi>=23.1
+pyjwt>=2.9
+apscheduler>=3.10,<4
