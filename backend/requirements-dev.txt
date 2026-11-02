@@ -43,8 +43,6 @@ click==8.5.0
     # via
     #   -c requirements.txt
     #   uvicorn
-colorama==0.4.6
-    # via pytest
 dnspython==2.9.0
     # via
     #   -c requirements.txt
@@ -103,7 +101,7 @@ packaging==26.3
     #   pytest
 pluggy==1.7.0
     # via pytest
-psycopg==3.3.6
+psycopg[binary]==3.3.6
     # via
     #   -c requirements.txt
     #   -r requirements.in
@@ -115,13 +113,13 @@ pycparser==3.12
     # via
     #   -c requirements.txt
     #   cffi
-pydantic==2.14.1
+pydantic==2.14.2
     # via
     #   -c requirements.txt
     #   -r requirements.in
     #   fastapi
     #   pydantic-settings
-pydantic-core==2.50.1
+pydantic-core==2.50.2
     # via
     #   -c requirements.txt
     #   pydantic
@@ -185,19 +183,18 @@ typing-inspection==0.4.4
     #   fastapi
     #   pydantic
     #   pydantic-settings
-tzdata==2026.5
-    # via
-    #   -c requirements.txt
-    #   psycopg
-    #   tzlocal
 tzlocal==5.4.5
     # via
     #   -c requirements.txt
     #   apscheduler
-uvicorn==0.54.0
+uvicorn[standard]==0.54.0
     # via
     #   -c requirements.txt
     #   -r requirements.in
+uvloop==0.23.0
+    # via
+    #   -c requirements.txt
+    #   uvicorn
 watchfiles==1.3.0
     # via
     #   -c requirements.txt
